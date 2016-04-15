@@ -1,5 +1,10 @@
 package com.cisco.cmad;
 
+import java.io.IOException;
+
+import org.mongodb.morphia.Datastore;
+
+import com.cisco.cmad.UserGet;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -45,7 +50,7 @@ public class PubSub extends AbstractVerticle{
     }
     
     public void getAPI(Router router) {
-    	router.get("/services/users/:id").handler(new User());
+    	router.get("/services/users/:id").handler(new UserGet());
     }
     
     public void serveStaticResources(Router router) {
@@ -62,9 +67,18 @@ public class PubSub extends AbstractVerticle{
     	ObjectMapper mapper = new ObjectMapper();
     	
     	try {
-			User user = mapper.readValue(jsonStr, User.class);
-			JsonNode node = mapper.valueToTree(user);
-	    	rc.response().end(node.toString());
+    		UserDTO dto = null;
+			try {
+				dto = mapper.readValue(jsonStr, UserDTO.class);
+			} catch (IOException e) {
+				e.printStackTrace();
+			}
+			User u = dto.toModel();
+			Datastore dataStore = ServiceFactory.getMongoDB();
+			dataStore.save(u);
+			rc.response().setStatusCode(200).end("Data saved");
+			
+	    	// rc.response().end(node.toString());
 			
 		} catch (Exception e) {
 			e.printStackTrace();
@@ -73,6 +87,8 @@ public class PubSub extends AbstractVerticle{
     }
     
 	public static void main(String[] args) {
+		
+		
     	VertxOptions options = new VertxOptions().setWorkerPoolSize(10);
     	Vertx vertx = Vertx.vertx(options);
     	
